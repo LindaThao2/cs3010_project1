@@ -1,0 +1,296 @@
+// Name : Alondra Sanchez
+// Class : CS3010 Numerical Methods
+// Assignment : Project 1 - Gaussian elimination with Scaled Partial Pivoting
+
+// Write a program that asks the user for the number of linear equations to sole n<=10 using the
+// Gaussian elimination with Scaled Partial Pivoting method. Ask the user to first enter the number
+// of equations and then give them the choice to enter the coefficients from the command line (by asking)
+// for each row that includes the b value) or have them enter a file name which has the augmented coefficients
+// matrix (including the b values) in a simple text file format as seen below for an example of 3 equations.
+
+package project1;
+import jdk.swing.interop.SwingInterOpUtils;
+
+import java.io.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Scanner;
+
+public class Main {
+
+    // diver code
+    public static void main(String[] args) throws IOException {
+        Scanner input = new Scanner(System.in);
+
+        displayMainMenu();
+        int mode = input.nextInt();
+
+        // get number of equations
+        int numOfEquations = getNumOfEquations();
+        float[][] coeffMatrix = new float[numOfEquations][numOfEquations];
+        float bValues[] = new float[numOfEquations];
+
+        switch (mode){
+            case 1:
+                System.out.println("\n------------------MANUAL MODE-------------------");
+                // ask user for coeff values and b-values of each equation
+                populateMatrix(coeffMatrix, bValues, numOfEquations);
+
+                System.out.println("INITIAL MATRIX:");
+                displayMatrix(coeffMatrix);
+                System.out.println("INITIAL B-VALUES:");
+                displayVector(bValues);
+
+                SPPGaussian(coeffMatrix, bValues);
+                break;
+
+            case 2:
+                System.out.println("\n------------------IMPORT FROM FILE-------------------\n");
+                Scanner in = new Scanner(System.in);
+
+                // ask user for file name
+                System.out.println("Please enter file name: ");
+                String filename = in.nextLine();
+                filename = "/Users/alondrasanchez/projects/cs3010_proj1_v2/src/project1/" + filename;
+                File file = new File(filename);
+
+                populateMatrixFromFile(file, coeffMatrix, bValues);
+
+                System.out.println("INITIAL MATRIX:");
+                displayMatrix(coeffMatrix);
+                System.out.println("INITIAL B-VALUES:");
+                displayVector(bValues);
+
+                SPPGaussian(coeffMatrix, bValues);
+                break;
+            default:
+                System.out.println("default mode");
+        }
+    }
+
+    /**
+     * displays the main menu
+     * */
+    public static void displayMainMenu(){
+        System.out.println("------------------MAIN MENU------------------");
+        System.out.println("Please select an option to perform Partial Pivoting: ");
+        System.out.println("1. Manually enter equations");
+        System.out.println("2. Import equations from a file");
+    }
+
+    /**
+     * Displays a formatted vector
+     * @param vector  the vector to be displayed
+     */
+    public static void displayVector(float[] vector){
+        int size = vector.length;
+        System.out.print("[");
+        for (int index = 0; index < size; index++){
+            System.out.print(vector[index]);
+            if (index < size -1){
+                System.out.print(", ");
+            }
+        }
+        System.out.print("]\n");
+    }
+
+    /**
+     * Displays a formatted Matrix
+     * @param matrix  nxn array to be displayed as a matrix
+     */
+    public static void displayMatrix(float [][] matrix){
+        int size = matrix.length;
+        for (int row = 0; row < size; row++){
+            for (int col = 0 ; col < size ; col++){
+                System.out.print(matrix[row][col] + "  ");
+            }
+            System.out.println();
+        }
+        System.out.println();
+    }
+
+    /**
+     * displays a solutions rounded to the nearest int
+     * @param sol  the array that holds the solutions to be displayed */
+    public static void displaySol(float[] sol, int[] lvector){
+        System.out.println("Final Solutions -----------------");
+        for (int index = 0; index < sol.length; index++){
+            System.out.println("X" + (index+1)  + " = " + Math.round(sol[index]));
+        }
+    }
+
+    /**
+     * asks user for number of equations required for calculation
+     * @return numOfEquations  number of equations in calculation
+     */
+    public static int getNumOfEquations(){
+        Scanner input = new Scanner(System.in);
+
+        int numOfEquations = 0;
+        System.out.println("Enter total number of linear equations (1 - 10): ");
+        numOfEquations = input.nextInt();
+
+        // ask for numOfEquations until valid input is provided
+        while (!(numOfEquations >= 1 && numOfEquations <= 10)){
+            System.out.println("Invalid input! Please enter number of linear equations (1- 10): ");
+            numOfEquations = input.nextInt();
+        }
+        return numOfEquations;
+    }
+
+    /**
+     * populates coeff matrix with user input
+     * @param matrix  the matrix to be populated
+     */
+    public static void populateMatrix(float[][] matrix, float[] bVal, int size){
+        Scanner input = new Scanner(System.in);
+
+        for (int row = 0; row < size ; row ++){
+            for(int column = 0; column < size ; column++){
+                System.out.println("Enter the coefficient value for X" + (column+1) +": ");
+                matrix[row][column] = input.nextFloat();
+            }
+            System.out.println("Enter the b-value for Equation " + (row+1) + ": ");
+            bVal[row] = input.nextFloat();
+        }
+    }
+
+    /**
+     * reads coefficients and bvalues from a file
+     * @param file the file to get coeff and bvalues from
+     * @param matrix  coefficient matrix to populate
+     * @param bValues where bvalues will be populated
+     * @throws IOException
+     */
+    public static void populateMatrixFromFile(File file, float[][] matrix, float[] bValues) throws IOException {
+        BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
+        String string ;
+        int lineNumber = 0;
+        while( (string = bufferedReader.readLine()) != null){
+            String[] stringOfDigits;
+            stringOfDigits = string.split(" ");
+
+            for (int index =0; index < stringOfDigits.length ; index++){
+                if (index == (stringOfDigits.length-1)){
+                    bValues[lineNumber] = Integer.parseInt(stringOfDigits[index]);
+                }
+                else{
+                    matrix[lineNumber][index]= Integer.parseInt(stringOfDigits[index]);
+                }
+            }
+            lineNumber++;
+        }
+    }
+
+    /**
+     * Calculates Gaussian elimination using the Scaled Partial Pivoting Method
+     * @param coeff  the nxn coefficient matrix
+     * @param bval  the b values
+     */
+    public static void SPPGaussian(float[][] coeff, float[] bval) {
+
+        int matrixSize = coeff.length;
+        float[] solutions = new float[matrixSize];  // final x values
+        int[] lVecotr = new int[matrixSize];
+
+        // initialize lvector
+        for (int i = 0; i < matrixSize; i++) {
+            lVecotr[i] = i;
+        }
+
+        SPPForwardElimination(coeff, bval, lVecotr);
+        SPPBackSubst(coeff, bval, solutions, lVecotr);
+
+        displaySol(solutions, lVecotr);
+    }
+
+    /**
+     * swaps two values in an array
+     * @param ind the array where two values will be swapped
+     * @param i the index of the value that needs to be swapped
+     * @param j the index to swap to
+     */
+    public static void swap(int[] ind, int i, int j) {
+        int temp = ind[i];
+        ind[i] = ind[j];
+        ind[j] = temp;
+    }
+
+    /**
+     * calculates forward elimination on the coefficient matrix
+     * @param coeff  the coefficient matrix
+     * @param bval  the corresponding bvalues for the coefficient matrix
+     * @param lVecotr the corresponding l-vector
+     */
+    public static void SPPForwardElimination(float[][] coeff, float[] bval, int[] lVecotr) {
+        int matrixSize = coeff.length;
+        float[] scaledRatios = new float[matrixSize];
+
+        // find Scalar vector (max values of each row)
+        for (int i = 0; i < matrixSize; i++) {
+            float smax = 0;
+            for (int j = 0; j < matrixSize; j++) {
+                smax = Math.max(smax, coeff[i][j]);
+            }
+            scaledRatios[i] = smax;
+        }
+
+        // find index of max of S (pivot index)
+        for (int colIndex = 0; colIndex < matrixSize; colIndex++) {
+            System.out.println("\nIteration " + colIndex + "---------------------------");
+
+            float rmax = 0; //pivot value
+            int maxInd = colIndex; // pivot index
+
+            System.out.print("Scaled Ratios: ");
+            // calculate scaled ratios
+            // todo: do we have to print abs values
+            for (int i = colIndex; i < matrixSize; i++) {
+                float r = coeff[lVecotr[i]][colIndex] / scaledRatios[lVecotr[i]];
+                System.out.print(r + " " );
+                if (r > rmax) {
+                    rmax = r;
+                    maxInd = i;
+                }
+            }
+            System.out.println("\n");
+            System.out.println("Selected pivot row: " + (maxInd + 1));
+
+            // update l-vector with correct index order
+            swap(lVecotr, maxInd, colIndex);
+
+            // calculate new coeff values for coeff matrix
+            for (int i = colIndex + 1; i < matrixSize; i++) {
+                float mult = coeff[lVecotr[i]][colIndex] / coeff[lVecotr[colIndex]][colIndex];
+                for (int j = colIndex ; j < matrixSize; j++) {
+                    //System.out.println("coeff[" + i + "][" + j + "]= "+ coeff[lVecotr[i]][j]  );
+                    coeff[lVecotr[i]][j] = coeff[lVecotr[i]][j] - mult * coeff[lVecotr[colIndex]][j];
+                }
+                bval[lVecotr[i]] = bval[lVecotr[i]] - mult * bval[lVecotr[colIndex]];
+            }
+            System.out.println("\nResulting Matrix: ");
+            displayMatrix(coeff);
+        }
+    }
+
+    /**
+     * calculates back substitution to solve for the final x values
+     * @param coeff the coefficient matrix of linear equations
+     * @param bValues the corresponding bvalues to the coefficient matrix
+     * @param sol  where all the solutions will be stored
+     * @param lVecotr  the l-vector from the forward elimination
+     */
+    public static void SPPBackSubst(float[][] coeff, float[] bValues, float[] sol, int[] lVecotr) {
+        int matrixSize = coeff.length;
+
+        // iterate from the furthest column to the right and back
+        for (int column = matrixSize - 1; column >= 0; column--) {
+            float sum = bValues[lVecotr[column]];
+            for (int row = column + 1; row < matrixSize; row++) {
+                sum = sum - coeff[lVecotr[column]][row] * sol[row];
+            }
+            sol[column] = sum / coeff[lVecotr[column]][column];
+        }
+    }
+
+}
